@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <em>Conceived, Architected, and Authored by <strong><a href="https://github.com/AhmadHassan-BTed">Ahmad Hassan (B-Ted)</a></strong></em>
+  <a href="https://trendshift.io/repositories/282905?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-282905" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/282905/daily" alt="AhmadHassan-BTed%2FNaSuno | Trendshift" width="250" height="55"/></a>
 </p>
 
 <p align="center">
