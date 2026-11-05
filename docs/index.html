@@ -50,11 +50,8 @@
             isUnlocked = (cVal === 'true' || cVal === '1');
           }
         }
-        if (isUnlocked) {
-          document.documentElement.classList.add('nasuno-unlocked');
-        } else {
-          document.documentElement.classList.remove('nasuno-unlocked');
-        }
+        // NaSuno Community Open Access: Engine unlocked by default
+        document.documentElement.classList.add('nasuno-unlocked');
       } catch(e) {}
     })();
   </script>
@@ -333,13 +330,16 @@
   <!-- Community Verification & Access Lock Modal -->
   <div class="auth-gate-overlay" id="nasunoAuthGate" role="dialog" aria-modal="true" aria-labelledby="authGateTitle">
     <div class="auth-gate-card">
-      <div class="auth-card-header">
+      <div class="auth-card-header" style="position: relative;">
+        <button class="popover-close" id="authGateCloseBtn" aria-label="Close" style="position: absolute; top: 0; right: 0;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
         <div class="auth-badge">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          <span>VERIFICATION LOCK</span>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <span>COMMUNITY SUPPORT</span>
         </div>
-        <h2 class="auth-card-title" id="authGateTitle">FORENSIC ENGINE LOCKED</h2>
-        <p class="auth-card-desc">Support open-source audio forensics. Star the core repositories and follow the creator on GitHub to unlock full DSP evasion, real-time FFT spectrum, and lossless WAV export.</p>
+        <h2 class="auth-card-title" id="authGateTitle">KEEP NASUNO FREE FOREVER</h2>
+        <p class="auth-card-desc">Your star and support is what keeps me going, and I'll keep NaSuno forever free with continuous evasion updates! If this tool helped you, please drop a star on GitHub.</p>
       </div>
 
       <div class="auth-steps-panel">

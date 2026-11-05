@@ -12,7 +12,14 @@ import { UIController } from './modules/ui.js';
 import { ConfigIO } from './modules/config-io.js';
 import { RegistryDOM } from './modules/registry.js';
 import { PersistenceManager } from './modules/storage.js';
-import { AuthPersistence, verifyGitHubStatus, getDeveloperRepos } from './modules/auth.js';
+import {
+  AuthPersistence,
+  verifyGitHubStatus,
+  getDeveloperRepos,
+  ENABLE_AUTH_GATE,
+  REQUIRE_FOLLOW_VERIFICATION,
+  REQUIRE_STAR_VERIFICATION
+} from './modules/auth.js';
 
 // ============================================================================
 // Application State
@@ -573,6 +580,7 @@ function applyPreset(presetKey) {
 // Auth & Community Verification Gate
 // ============================================================================
 function isEngineUnlocked() {
+  if (!ENABLE_AUTH_GATE) return true;
   return AuthPersistence.isUnlocked();
 }
 
@@ -581,10 +589,36 @@ function showAuthGate() {
   if (gateEl) {
     gateEl.style.display = 'flex';
   }
-  document.documentElement.classList.remove('nasuno-unlocked');
+  if (ENABLE_AUTH_GATE) {
+    document.documentElement.classList.remove('nasuno-unlocked');
+  }
   const pillEl = document.getElementById('verifiedPill');
-  if (pillEl) pillEl.style.display = 'none';
-  populateInitialRepositories();
+  if (pillEl && ENABLE_AUTH_GATE) pillEl.style.display = 'none';
+
+  if (REQUIRE_STAR_VERIFICATION) {
+    const unstarredSection = document.getElementById('unstarredSection');
+    if (unstarredSection) unstarredSection.style.display = 'block';
+    const stepStars = document.getElementById('stepStars');
+    if (stepStars) stepStars.style.display = 'flex';
+    populateInitialRepositories();
+  } else {
+    const unstarredSection = document.getElementById('unstarredSection');
+    if (unstarredSection) unstarredSection.style.display = 'none';
+    const stepStars = document.getElementById('stepStars');
+    if (stepStars) stepStars.style.display = 'none';
+  }
+
+  if (!REQUIRE_FOLLOW_VERIFICATION) {
+    const stepFollowUser = document.getElementById('stepFollowUser');
+    if (stepFollowUser) stepFollowUser.style.display = 'none';
+    const stepFollowOrg = document.getElementById('stepFollowOrg');
+    if (stepFollowOrg) stepFollowOrg.style.display = 'none';
+  } else {
+    const stepFollowUser = document.getElementById('stepFollowUser');
+    if (stepFollowUser) stepFollowUser.style.display = 'flex';
+    const stepFollowOrg = document.getElementById('stepFollowOrg');
+    if (stepFollowOrg) stepFollowOrg.style.display = 'flex';
+  }
 }
 
 function hideAuthGate(username) {
@@ -601,6 +635,7 @@ function hideAuthGate(username) {
 
 let cachedDevRepos = null;
 async function populateInitialRepositories() {
+  if (!REQUIRE_STAR_VERIFICATION) return;
   const unstarredList = document.getElementById('unstarredList');
   const unstarredBadge = document.getElementById('unstarredBadge');
   if (!unstarredList) return;
@@ -678,11 +713,55 @@ function setupAuthGate() {
   const stepStars = document.getElementById('stepStars');
   const stepStarsStatus = document.getElementById('stepStarsStatus');
 
-  if (AuthPersistence.isUnlocked()) {
+  if (!REQUIRE_FOLLOW_VERIFICATION) {
+    if (stepFollowUser) stepFollowUser.style.display = 'none';
+    if (stepFollowOrg) stepFollowOrg.style.display = 'none';
+  }
+
+  if (!REQUIRE_STAR_VERIFICATION) {
+    if (stepStars) stepStars.style.display = 'none';
+    const unstarredSection = document.getElementById('unstarredSection');
+    if (unstarredSection) unstarredSection.style.display = 'none';
+  }
+
+  if (!ENABLE_AUTH_GATE) {
+    hideAuthGate('Community');
+    const authTitle = document.getElementById('authGateTitle');
+    if (authTitle) authTitle.textContent = 'COMMUNITY SUPPORT & UPDATES';
+    const authDesc = document.querySelector('.auth-card-desc');
+    if (authDesc) {
+      authDesc.textContent = 'Your star and support is what keeps me going, and I\'ll keep NaSuno forever free with continuous evasion updates! If this tool helped you, please drop a star on GitHub.';
+    }
+  } else if (AuthPersistence.isUnlocked()) {
     const savedUser = AuthPersistence.getSavedUsername();
     hideAuthGate(savedUser);
   } else {
     showAuthGate();
+  }
+
+  // Backdrop click & close button handler when auth gate is disabled
+  const gateEl = document.getElementById('nasunoAuthGate');
+  if (gateEl) {
+    gateEl.addEventListener('click', (e) => {
+      if (!ENABLE_AUTH_GATE && e.target === gateEl) {
+        gateEl.style.display = 'none';
+      }
+    });
+  }
+
+  const gateCloseBtn = document.getElementById('authGateCloseBtn');
+  if (gateCloseBtn) {
+    gateCloseBtn.addEventListener('click', () => {
+      if (gateEl) gateEl.style.display = 'none';
+    });
+  }
+
+  const pillEl = document.getElementById('verifiedPill');
+  if (pillEl) {
+    pillEl.style.cursor = 'pointer';
+    pillEl.addEventListener('click', () => {
+      showAuthGate();
+    });
   }
 
   if (lockBtn) {
@@ -719,7 +798,9 @@ function setupAuthGate() {
       const res = await verifyGitHubStatus(val);
 
       if (stepFollowUser && stepFollowUserStatus) {
-        if (res.isFollowingUser) {
+        if (!REQUIRE_FOLLOW_VERIFICATION) {
+          stepFollowUser.style.display = 'none';
+        } else if (res.isFollowingUser) {
           stepFollowUser.className = 'auth-step-row step-passed';
           stepFollowUserStatus.textContent = 'Followed ✓';
         } else if (res.isRateLimited) {
@@ -732,7 +813,9 @@ function setupAuthGate() {
       }
 
       if (stepFollowOrg && stepFollowOrgStatus) {
-        if (res.isFollowingOrg) {
+        if (!REQUIRE_FOLLOW_VERIFICATION) {
+          stepFollowOrg.style.display = 'none';
+        } else if (res.isFollowingOrg) {
           stepFollowOrg.className = 'auth-step-row step-passed';
           stepFollowOrgStatus.textContent = 'Followed ✓';
         } else if (res.isRateLimited) {
@@ -745,7 +828,9 @@ function setupAuthGate() {
       }
 
       if (stepStars && stepStarsStatus) {
-        if (res.unstarred.length === 0) {
+        if (!REQUIRE_STAR_VERIFICATION) {
+          stepStars.style.display = 'none';
+        } else if (res.unstarred.length === 0) {
           stepStars.className = 'auth-step-row step-passed';
           stepStarsStatus.textContent = 'All Starred ✓';
         } else if (res.isRateLimited) {
@@ -756,7 +841,9 @@ function setupAuthGate() {
           stepStarsStatus.textContent = `${res.unstarred.length} Remaining ✗`;
         }
       }
-      renderUnstarredList(res.unstarred);
+      if (REQUIRE_STAR_VERIFICATION) {
+        renderUnstarredList(res.unstarred);
+      }
 
       if (res.success) {
         AuthPersistence.loginUser(res.username);
@@ -850,7 +937,7 @@ function setupExportWAV() {
       URL.revokeObjectURL(downloadUrl);
 
       if (statusEl) {
-        statusEl.textContent = `Export complete (${isBypassed ? 'Pristine Raw PCM' : 'Cleaned Evasion 16-bit WAV'})`;
+        statusEl.innerHTML = `Export complete! ★ <a href="https://github.com/AhmadHassan-BTed/NaSuno" target="_blank" rel="noopener noreferrer" style="color: #ff9800; text-decoration: underline; font-weight: 700;">Star on GitHub</a> keeps NaSuno free &amp; updated!`;
       }
     } catch (err) {
       console.error('Export error:', err);

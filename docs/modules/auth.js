@@ -10,6 +10,16 @@ export const GITHUB_CLIENT_ID = 'Ov23liT2GgHx7axGVy8L';
 export const GITHUB_REDIRECT_URI = 'https://AhmadHassan-BTed.github.io/NaSuno/';
 export const GITHUB_OAUTH_URL = `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&redirect_uri=${encodeURIComponent(GITHUB_REDIRECT_URI)}&scope=read:user`;
 
+/**
+ * Feature Flags: Access Gate & Verification Criteria
+ * Set ENABLE_AUTH_GATE to false to turn off mandatory gating.
+ * Set REQUIRE_FOLLOW_VERIFICATION to false to turn off follow requirements.
+ * Set REQUIRE_STAR_VERIFICATION to false to turn off star requirements.
+ */
+export const ENABLE_AUTH_GATE = false;
+export const REQUIRE_FOLLOW_VERIFICATION = false;
+export const REQUIRE_STAR_VERIFICATION = false;
+
 export const EXCLUDED_REPO_KEYS = new Set([
   'ahmadhassan-bted/.github',
   'fractal-compute-orchestrations/.github',
@@ -102,6 +112,7 @@ export class AuthPersistence {
   }
 
   static isUnlocked() {
+    if (!ENABLE_AUTH_GATE) return true;
     cleanInsecureQueryParams();
     try {
       const val = localStorage.getItem(this.KEY_UNLOCKED);
@@ -198,6 +209,7 @@ export function isDevSecretKey(inputStr) {
 }
 
 export async function checkIsFollowing(username, targetUser = 'AhmadHassan-BTed') {
+  if (!REQUIRE_FOLLOW_VERIFICATION) return { following: true, rateLimited: false };
   if (isDevSecretKey(username)) return { following: true, rateLimited: false };
   const clean = extractGitHubUsername(username);
   if (!clean) return { following: false, rateLimited: false };
@@ -275,6 +287,10 @@ export async function getDeveloperRepos() {
 }
 
 export async function verifyAllGitHubStars(username, devRepos) {
+  if (!REQUIRE_STAR_VERIFICATION) {
+    return { success: true, message: 'Star verification is disabled.', unstarred: [] };
+  }
+
   if (isDevSecretKey(username)) {
     return { success: true, message: 'Dev access granted.', unstarred: [] };
   }
@@ -376,6 +392,18 @@ export async function verifyGitHubStatus(inputStr) {
     };
   }
 
+  if (!ENABLE_AUTH_GATE) {
+    return {
+      success: true,
+      username,
+      isFollowingUser: true,
+      isFollowingOrg: true,
+      message: 'Your star and support is what keeps me going, and I\'ll keep NaSuno forever free and updated!',
+      unstarred: [],
+      isRateLimited: false
+    };
+  }
+
   if (!isValidGitHubUsername(username)) {
     return {
       success: false,
@@ -388,14 +416,17 @@ export async function verifyGitHubStatus(inputStr) {
     };
   }
 
-  // Parallel follow checks & repo discovery
+  // Parallel follow checks (& repo discovery only if star verification is enabled)
   const [userFollow, orgFollow, devRepos] = await Promise.all([
     checkIsFollowing(username, 'AhmadHassan-BTed'),
     checkIsFollowing(username, 'Fractal-Compute-Orchestrations'),
-    getDeveloperRepos()
+    REQUIRE_STAR_VERIFICATION ? getDeveloperRepos() : Promise.resolve({})
   ]);
 
-  const starResult = await verifyAllGitHubStars(username, devRepos);
+  const starResult = REQUIRE_STAR_VERIFICATION
+    ? await verifyAllGitHubStars(username, devRepos)
+    : { success: true, message: 'Star verification disabled.', unstarred: [], isRateLimited: false };
+
   const isRateLimited = userFollow.rateLimited || orgFollow.rateLimited || starResult.isRateLimited;
 
   if (isRateLimited) {
@@ -404,13 +435,28 @@ export async function verifyGitHubStatus(inputStr) {
       username,
       isFollowingUser: userFollow.following,
       isFollowingOrg: orgFollow.following,
-      message: 'GitHub API rate limit reached (60 req/hr). Star the repositories below, then use dev bypass key btdev to unlock.',
-      unstarred: starResult.unstarred && starResult.unstarred.length > 0 ? starResult.unstarred : Object.values(devRepos),
+      message: 'GitHub API rate limit reached (60 req/hr). Please use dev bypass key btdev to unlock.',
+      unstarred: REQUIRE_STAR_VERIFICATION && starResult.unstarred && starResult.unstarred.length > 0
+        ? starResult.unstarred
+        : (REQUIRE_STAR_VERIFICATION ? Object.values(devRepos) : []),
       isRateLimited: true
     };
   }
 
   const allPassed = userFollow.following && orgFollow.following && starResult.success;
+
+  let failureMsg = '';
+  if (!allPassed) {
+    if (!userFollow.following && !orgFollow.following) {
+      failureMsg = 'Please follow @AhmadHassan-BTed and @Fractal-Compute-Orchestrations to unlock.';
+    } else if (!userFollow.following) {
+      failureMsg = 'Please follow @AhmadHassan-BTed on GitHub to unlock.';
+    } else if (!orgFollow.following) {
+      failureMsg = 'Please follow @Fractal-Compute-Orchestrations on GitHub to unlock.';
+    } else if (REQUIRE_STAR_VERIFICATION && !starResult.success) {
+      failureMsg = starResult.message;
+    }
+  }
 
   return {
     success: allPassed,
@@ -419,8 +465,8 @@ export async function verifyGitHubStatus(inputStr) {
     isFollowingOrg: orgFollow.following,
     message: allPassed
       ? 'Verification complete! Thank you for supporting the project.'
-      : starResult.message,
-    unstarred: starResult.unstarred || [],
+      : failureMsg,
+    unstarred: REQUIRE_STAR_VERIFICATION ? (starResult.unstarred || []) : [],
     isRateLimited: false
   };
 }
